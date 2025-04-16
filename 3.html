@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>那是什么？</title>
+    <style>
+        :root {
+            --star-count: 200;
+            --glow-color: rgba(255, 255, 255, 0.2);
+            --gradient-angle: 45deg;
+        }
+
+        #data-panel {
+            position: fixed;
+            left: -260px;
+            top: 0;
+            width: 260px;
+            height: 100vh;
+            /*background: rgba(0,0,0,0.9);*/
+            backdrop-filter: blur(12px);
+            padding: 20px;
+            overflow-y: auto;
+            z-index: 1000;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 1px 0 5px rgba(0, 0, 0, 0.4);
+        }
+
+        #data-panel.active {
+            transform: translateX(260px);
+        }
+
+        .data-item {
+            padding: 16px;
+            margin: 12px 0;
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.08), transparent);
+            border-radius: 8px;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .data-item::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #3498db, #9b59b6);
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: -1;
+        }
+
+        .data-item:hover {
+            transform: translateX(15px);
+        }
+
+        .data-item.active {
+            box-shadow: 0 0 20px rgba(52, 152, 219, 0.3);
+        }
+
+        .data-item.active::after {
+            opacity: 0.3;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: 'Microsoft Yahei', sans-serif;
+            position: relative;
+            overflow-x: hidden;
+            padding-left: 20px;
+            transition: padding-left 0.3s;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            width: 200vw;
+            height: 200vh;
+            background: radial-gradient(circle at 50% 50%,
+            rgba(255, 255, 255, 0.1) 0%,
+            transparent 60%);
+            animation: gradientMove 20s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes gradientMove {
+            0% {
+                transform: translate(-50%, -50%);
+            }
+            100% {
+                transform: translate(50%, 50%);
+            }
+        }
+
+        #container {
+            padding-left: 260px;
+            margin: 20px auto 0 auto;
+            width: 80%;
+            max-width: 1000px;
+            /*padding: 20px;*/
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        #control-panel {
+            position: fixed;
+            bottom: 30px;
+            display: flex;
+            gap: 15px;
+            z-index: 2;
+        }
+
+        button {
+            padding: 12px 25px;
+            font-size: 16px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 2px 15px var(--glow-color);
+        }
+
+        .word-item {
+            opacity: 0;
+            transform: translateY(20px) scale(0.95);
+            animation: wordAppear 0.8s forwards;
+            filter: blur(1px);
+            text-shadow: 0 0 8px currentColor;
+            cursor: pointer;
+            transition: 0.3s all;
+        }
+
+        @keyframes wordAppear {
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .line-break {
+            width: 100%;
+            height: 0;
+        }
+    </style>
+</head>
+<body>
+<div id="data-panel" class="active"></div>
+<div id="quantum-field"></div>
+<div id="container"></div>
+<div id="control-panel">
+    <button id="startBtn">▶️ 开始</button>
+    <button id="stopBtn">⏹️ 停止</button>
+    <button id="musicBtn">🎵</button>
+</div>
+
+<audio id="bgm" loop>
+    <source src="/musics/时间是个小偷-张钰垚.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+    const staticData = [
+        {
+            title: "梦境",
+            music: "/musics/时间是个小偷-张钰垚.mp3",
+            words: [
+                ["##", 0, 0, "transparent", "transparent", false],
+                ["梦中", 500, 800, "#70a1ff", "rgba(112, 161, 255, 0.1)", true],
+                ["是", 300, 500, "#ffd700", "rgba(255, 215, 0, 0.1)", true],
+                ["这样的，", 300, 1000, "#95a5a6", "transparent", false],
+                ["##", 0, 0, "transparent", "transparent", false],
+
+                ["有", 200, 400, "#dcdde1", "transparent", true],
+                ["一个人", 300, 800, "#3498db", "rgba(52, 152, 219, 0.1)", true],
+                ["看了", 200, 400, "#7f8c8d", "transparent", true],
+                ["我", 0, 500, "#ff6b6b", "rgba(255, 107, 107, 0.1)", true],
+                ["好久", 300, 1200, "#2ecc71", "rgba(46, 204, 113, 0.1)", true],
+                ["，", 0, 0, "#95a5a6", "transparent", false],
+                ["##", 0, 0, "transparent", "transparent", false],
+
+                ["她", 500, 600, "#e67e22", "rgba(230, 126, 34, 0.1)", true],
+                ["问", 200, 400, "#9b59b6", "rgba(155, 89, 182, 0.1)", true],
+                ["我：", 300, 800, "#2c3e50", "rgba(44, 62, 80, 0.1)", true],
+                ["##", 0, 0, "transparent", "transparent", false],
+                ["「", 0, 0, "#7f8c8d", "transparent", false],
+                ["为什么", 500, 800, "#ff4757", "rgba(255, 71, 87, 0.1)", true],
+                ["要", 200, 300, "#2ecc71", "rgba(46, 204, 113, 0.1)", true],
+                ["这么做？", 0, 1500, "#ff4757", "rgba(255, 71, 87, 0.2)", true],
+                ["##", 0, 0, "transparent", "transparent", false],
+                ["为什么", 300, 600, "#ff4757", "rgba(255, 71, 87, 0.1)", true],
+                ["不把", 200, 400, "#3498db", "rgba(52, 152, 219, 0.1)", true],
+                ["所有的", 300, 500, "#9b59b6", "rgba(155, 89, 182, 0.1)", true],
+                ["东西", 0, 800, "#2ecc71", "rgba(46, 204, 113, 0.1)", true],
+                ["捡起来？", 0, 2000, "#ff4757", "rgba(255, 71, 87, 0.2)", true],
+                ["」", 0, 0, "#7f8c8d", "transparent", false],
+                ["##", 0, 0, "transparent", "transparent", false],
+
+                ["我", 600, 500, "#ff6b6b", "rgba(255, 107, 107, 0.1)", true],
+                ["在", 200, 300, "#dcdde1", "transparent", true],
+                ["梦里", 300, 800, "#70a1ff", "rgba(112, 161, 255, 0.1)", true],
+                ["##", 0, 0, "transparent", "transparent", false],
+                ["什么", 0, 200, "#400dcdde1", "transparent", true],
+                ["都", 0, 300, "#dcdde1", "transparent", true],
+                ["不明白", 0, 1000, "#ffd700", "rgba(255, 215, 0, 0.1)", true],
+                ["，", 0, 0, "#95a5a6", "transparent", false],
+                ["##", 0, 0, "transparent", "transparent", false],
+                ["不", 200, 300, "#ff6b6b", "rgba(255, 107, 107, 0.1)", true],
+                ["知道", 300, 500, "#70a1ff", "rgba(112, 161, 255, 0.1)", true],
+                ["该", 0, 300, "#dcdde1", "transparent", true],
+                ["怎么", 0, 600, "#dcdde1", "transparent", true],
+                ["回答", 0, 1200, "#ffd700", "rgba(255, 215, 0, 0.1)", true],
+                ["，", 0, 0, "#95a5a6", "transparent", false],
+                ["##", 0, 0, "transparent", "transparent", false],
+
+                ["但", 800, 400, "#dcdde1", "transparent", true],
+                ["不", 200, 300, "#ff6b6b", "rgba(255, 107, 107, 0.1)", true],
+                ["知道", 300, 500, "#70a1ff", "rgba(112, 161, 255, 0.1)", true],
+                ["是", 0, 400, "#dcdde1", "transparent", true],
+                ["谁", 0, 600, "#ffd700", "rgba(255, 215, 0, 0.1)", true],
+                ["说：", 300, 800, "#2c3e50", "rgba(44, 62, 80, 0.1)", true],
+                ["##", 0, 0, "transparent", "transparent", false],
+                ["「", 0, 0, "#7f8c8d", "transparent", false],
+                ["这么多", 500, 800, "#ffd700", "rgba(255, 215, 0, 0.1)", true],
+                ["能", 200, 300, "#dcdde1", "transparent", true],
+                ["全部", 0, 500, "#70a1ff", "rgba(112, 161, 255, 0.1)", true],
+                ["捡起来", 0, 1000, "#2ecc71", "rgba(46, 204, 113, 0.1)", true],
+                ["吗？", 0, 2000, "#ff4757", "rgba(255, 71, 87, 0.2)", true],
+                ["」", 0, 0, "#7f8c8d", "transparent", false],
+                ["##", 0, 0, "transparent", "transparent", false],
+
+                ["我", 500, 600, "#ff6b6b", "rgba(255, 107, 107, 0.1)", true],
+                ["想", 200, 400, "#dcdde1", "transparent", true],
+                ["随声", 300, 500, "#70a1ff", "rgba(112, 161, 255, 0.1)", true],
+                ["附和，", 0, 800, "#9b59b6", "rgba(155, 89, 182, 0.1)", true],
+                ["##", 0, 0, "transparent", "transparent", false],
+                ["话", 800, 400, "#ffd700", "rgba(255, 215, 0, 0.1)", true],
+                ["到", 200, 300, "#dcdde1", "transparent", true],
+                ["嘴边", 300, 800, "#70a1ff", "rgba(112, 161, 255, 0.1)", true],
+                ["##", 0, 0, "transparent", "transparent", false],
+                ["又", 300, 400, "#ff6b6b", "rgba(255, 107, 107, 0.1)", true],
+                ["没有", 0, 500, "#dcdde1", "transparent", true],
+                ["说", 0, 600, "#ffd700", "rgba(255, 215, 0, 0.1)", true],
+                ["出口", 0, 1500, "#2ecc71", "rgba(46, 204, 113,.1)", true],
+                ["...", 0, 0, "#95a5a6", "transparent", false],
+                ["##", 0, 0, "transparent", "transparent", false],
+
+                ["在", 1000, 300, "#dcdde1", "transparent", true],
+                ["梦里", 0, 600, "#70a1ff", "rgba(112, 161, 255, 0.1)", true],
+                ["我", 200, 400, "#ff6b6b", "rgba(255, 107, 107, 0.1)", true],
+                ["看见", 300, 800, "#9b6", "rgba(155, 89, 182, 0.1)", true],
+                ["她", 0, 500, "#e67e22", "rgba(230, 126, 34, 0.1)", true],
+                ["哭了", 0, 1200, "#ff4757", "rgba(255, 71, 87, 0.2)", true],
+                ["，", 0, 0, "#95a5a6", "transparent", false],
+                ["##", 0, 0, "transparent", "transparent", false],
+                ["哭得", 500, 600, "#ff6b6b", "rgba(255, 107, 107, 0.1)", true],
+                ["很", 200, 300, "#dcdde1", "transparent", true],
+                ["伤心", 0, 2500, "#ff4757", "rgba(255, 71, 87, 0.3)", true],
+                ["。", 0, 0, "#95a5a6", "transparent", false],
+                ["##", 0, 0, "transparent", "transparent", false],
+
+                ["我", 600, 500, "#ff6b6b", "rgba(255, 107, 107, 0.1)", true],
+                ["在", 200, 300, "#dcdde1", "transparent", true],
+                ["梦里", 0, 800, "#70a1ff", "rgba(112, 161, 255, 0.1)", true],
+                ["##", 0, 0, "transparent", "transparent", false],
+                ["漂泊了", 300, 600, "#9b59b6", "rgba(155, 89, 182, 0.1)", true],
+                ["好久", 0, 1500, "#2ecc71", "rgba(46, 204, 113, 0.1)", true],
+                ["，", 0, 0, "#95a5a6", "transparent", false],
+                ["##", 0, 0, "transparent", "transparent", false],
+                ["看见", 300, 500, "#9b59b6", "rgba(155, 89, 182, 0.1)", true],
+                ["一个", 200, 400, "#dcdde1", "transparent", true],
+                ["又", 300, 300, "#ff6b6b", "rgba(255, 107, 107, 0.1)", true],
+                ["一个的", 0, 800, "#70a1ff", "rgba(112, 161, 255, 0.1)", true],
+                ["路口", 0, 3000, "#2c3e50", "rgba(44, 62, 80, 0.2)", true],
+                ["。", 0, 0, "#95a5a6", "transparent", false]
+            ],
+            themeColor: "#3498db",
+            autoPlay: true
+        },
+        {
+            title: "救赎",
+            music: "/musics/时间是个小偷-张钰垚.mp3",
+            words: [
+                ["##", 0, 0, "", "", false],
+                ["刚开始", 500, 1100, "#2c3e50", "rgba(44,62,80,0.1)", false],
+                ["我在你身上，", 300, 1700, "#9b59b6", "rgba(155,89,182,0.15)", true],
+                ["看到了真诚。", 800, 2300, "#2ecc71", "rgba(46,204,113,0.2)", true],
+
+                ["##", 0, 0, "", "", false],
+                ["所以", 200, 900, "#2c3e50", "rgba(44,62,80,0.1)", false],
+                ["我卸下了防备，", 400, 1300, "#e74c3c", "rgba(231,76,60,0.15)", true],
+                ["带着真诚，", 600, 1600, "#2ecc71", "rgba(46,204,113,0.2)", true],
+                ["慢慢地", 300, 1100, "#3498db", "rgba(52,152,219,0.15)", false],
+                ["靠近你。", 800, 1900, "#9b59b6", "rgba(155,89,182,0.15)", true],
+
+                ["##", 0, 0, "", "", false],
+                ["我经常", 500, 1200, "#2c3e50", "rgba(44,62,80,0.1)", false],
+                ["以为我们会", 300, 1500, "#3498db", "rgba(52,152,219,0.15)", true],
+                ["走得很久，", 600, 1800, "#9b59b6", "rgba(155,89,182,0.15)", true],
+                ["甚至是", 200, 900, "#2ecc71", "rgba(46,204,113,0.2)", false],
+                ["一辈子。", 800, 2100, "#e74c3c", "rgba(231,76,60,0.15)", true],
+
+                ["##", 0, 0, "", "", false],
+                ["可现在", 500, 1300, "#2c3e50", "rgba(44,62,80,0.1)", false],
+                ["我在身上", 300, 1100, "#9b59b6", "rgba(155,89,182,0.15)", true],
+                ["看到了", 200, 900, "#3498db", "rgba(52,152,219,0.15)", false],
+                ["「教训」", 800, 900, "#e74c3c", "rgba(231,76,60,0.15)", true],
+                ["。", 100, 300, "transparent", "transparent", false],
+
+                ["##", 0, 0, "", "", false],
+                ["总觉得", 500, 1100, "#2c3e50", "rgba(44,62,80,0.1)", false],
+                ["不应该是", 300, 1300, "#e74c3c", "rgba(231,76,60,0.15)", true],
+                ["这样的结局，", 600, 1700, "#9b59b6", "rgba(155,89,182,0.15)", true],
+                ["但好像", 200, 900, "#2c3e50", "rgba(44,62,80,0.1)", false],
+                ["在自己的", 400, 1200, "#3498db", "rgba(52,152,219,0.15)", true],
+                ["意料之中。", 800, 2100, "#9b59b6", "rgba(155,89,182,0.15)", true],
+
+                ["##", 0, 0, "", "", false],
+                ["也许我", 500, 1100, "#2c3e50", "rgba(44,62,80,0.1)", false],
+                ["曾失去了", 300, 1300, "#e74c3c", "rgba(231,76,60,0.15)", true],
+                ["自己，", 600, 900, "#9b59b6", "rgba(155,89,182,0.15)", false],
+                ["忘记了", 200, 1100, "#3498db", "rgba(52,152,219,0.15)", true],
+                ["自己真正的", 400, 1400, "#2ecc71", "rgba(46,204,113,0.2)", false],
+                ["样子，", 800, 1600, "#9b59b6", "rgba(155,89,182,0.15)", true],
+                ["我一直", 300, 1200, "#2c3e50", "rgba(44,62,80,0.1)", false],
+                ["在救赎", 600, 1700, "#9b59b6", "rgba(155,89,182,0.15)", true],
+                ["自己，", 200, 900, "#e74c3c", "rgba(231,76,60,0.15)", false],
+                ["不断的", 400, 1300, "#3498db", "rgba(52,152,219,0.15)", true],
+                ["平衡", 300, 1100, "#2ecc71", "rgba(46,204,113,0.2)", false],
+                ["自己。", 800, 1900, "#9b59b6", "rgba(155,89,182,0.15)", true]
+            ],
+            themeColor: "#9b59b6",
+            autoPlay: true
+        }
+    ];
+
+    let currentDataset = null;
+    let currentIndex = 0;
+    let currentListIndex = 0;
+    let isPlaying = false;
+    const elements = {
+        container: document.getElementById('container'),
+        startBtn: document.getElementById('startBtn'),
+        stopBtn: document.getElementById('stopBtn'),
+        musicBtn: document.getElementById('musicBtn'),
+        bgm: document.getElementById('bgm'),
+        dataPanel: document.getElementById('data-panel')
+    };
+
+    function initDataPanel() {
+        const fragment = document.createDocumentFragment();
+        staticData.forEach((dataset, index) => {
+            const item = document.createElement('div');
+            item.className = 'data-item';
+
+            const title = document.createElement('h3');
+            title.style.margin = '0';
+            title.style.color = dataset.themeColor;
+            title.textContent = dataset.title;
+
+            const sub = document.createElement('small');
+            sub.style.opacity = '0.7';
+            sub.textContent = dataset.words.length + '个元素';
+
+            item.appendChild(title);
+            item.appendChild(sub);
+            item.dataset.index = index;
+
+            item.addEventListener('click', () => loadDataset(index));
+            fragment.appendChild(item);
+        });
+        elements.dataPanel.appendChild(fragment);
+        loadDataset(0);
+    }
+
+    async function loadDataset(index) {
+        currentListIndex = index;
+        document.querySelectorAll('.data-item').forEach(item =>
+            item.classList.remove('active'));
+        elements.dataPanel.children[index].classList.add('active');
+
+        resetSystem();
+        currentDataset = staticData[index];
+        elements.bgm.src = currentDataset.music;
+        elements.container.innerHTML = '';
+        currentIndex = 0;
+
+        document.documentElement.style.setProperty('--glow-color',
+            currentDataset.themeColor + '40');
+
+        if (currentDataset.autoPlay) await startAnimation();
+    }
+
+    async function createElement(config) {
+        const [text, delay, duration, color] = config;
+        if (text === '##') {
+            const br = document.createElement('div');
+            br.className = 'line-break';
+            elements.container.appendChild(br);
+            return;
+        }
+
+        const elem = document.createElement('div');
+        elem.className = 'word-item';
+        elem.textContent = text;
+        elem.style.color = color;
+
+        await new Promise(r => setTimeout(r, delay));
+        elements.container.appendChild(elem);
+        elem.style.opacity = '1';
+        await new Promise(r => setTimeout(r, duration));
+    }
+
+    async function startAnimation() {
+        if (isPlaying || !currentDataset) return;
+        isPlaying = true;
+        elements.startBtn.disabled = true;
+
+        try {
+            await elements.bgm.play();
+            document.body.classList.add('playing');
+        } catch (e) {
+            alert('请点击页面激活音频播放');
+        }
+
+        while (currentIndex < currentDataset.words.length && isPlaying) {
+            await createElement(currentDataset.words[currentIndex++]);
+        }
+        isPlaying = false;
+        elements.startBtn.disabled = false;
+
+        // currentListIndex++;
+        // if(currentListIndex>=staticData.length)currentListIndex=0;
+        // //等待5s后自动切换下一集
+        // const flag=setTimeout(() => {
+        //     clearTimeout(flag);
+        //     loadDataset(currentListIndex);
+        // }, 5000);
+    }
+
+    function resetSystem() {
+        isPlaying = false;
+        elements.bgm.pause();
+        elements.bgm.currentTime = 0;
+        elements.container.innerHTML = '';
+        document.body.classList.remove('playing');
+    }
+
+    // document.getElementById('panel-toggle').addEventListener('click', () => {
+    //     elements.dataPanel.classList.toggle('active');
+    // });
+
+    elements.startBtn.addEventListener('click', startAnimation);
+    elements.stopBtn.addEventListener('click', resetSystem);
+    elements.musicBtn.addEventListener('click', () => {
+        if (elements.bgm.paused) elements.bgm.play();
+        else elements.bgm.pause();
+    });
+    initDataPanel();
+</script>
+</body>
+</html>
